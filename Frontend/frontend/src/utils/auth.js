@@ -11,7 +11,7 @@ export async function ensureCsrf() {
 }
 
 export async function logout({ navigate } = {}) {
-  // ✅ FIX: use sessionStorage
+   
   const refresh = sessionStorage.getItem("refresh_token");
 
   try {
@@ -24,14 +24,14 @@ export async function logout({ navigate } = {}) {
   } catch (err) {
     console.warn("Logout error:", err?.response?.data || err);
   } finally {
-    // ✅ FIX: clear sessionStorage ONLY
+     
     sessionStorage.removeItem("access_token");
     sessionStorage.removeItem("refresh_token");
     sessionStorage.removeItem("user");
 
     setAuthToken(null);
 
-    // Notify app state
+    
     window.dispatchEvent(new CustomEvent("authChanged"));
 
     if (navigate) navigate("/login");
