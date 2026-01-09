@@ -1,0 +1,95 @@
+class MeView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+    parser_classes = [MultiPartParser, FormParser]  # IMPORTANT: allow multipart/form-data and files
+
+    def get(self, request):
+        logger.info(
+            "MeView GET called -- user: %s, is_authenticated: %s, is_active: %s",
+            request.user,
+            getattr(request.user, "is_authenticated", False),
+            getattr(request.user, "is_active", None),
+        )
+        serializer = UserDetailSerializer(request.user, context={'request': request})
+        return Response(serializer.data)
+
+    def put(self, request):
+        # Debug: log incoming keys so you can inspect in server logs
+        try:
+            logger.debug("MeView.PUT request.data keys: %s", list(request.data.keys()))
+            logger.debug("MeView.PUT request.FILES keys: %s", list(request.FILES.keys()))
+        except Exception:
+            pass
+
+        # Copy request.data (QueryDict) to a mutable dict
+        data = request.data.copy()
+        if "data" in data:
+            try:
+                json_data = json.loads(data.get("data"))
+                data.update(json_data)
+                data.pop("data", None)
+            except Exception:
+                pass
+
+        def collect_nested(prefix):
+            """
+            Collect keys like 'patient_profile.age' => nested['age'].
+            Ignore empty-string values (so fields are not overwritten with "").
+            Map uploaded files (request.FILES) into nested dict as 'profile_picture'.
+            If client sends prefix (e.g. patient_profile) as JSON/string we ignore here.
+            """
+            nested = {}
+            # collect dotted keys
+            for key in list(data.keys()):
+                if key.startswith(prefix):
+                    subkey = key[len(prefix):]
+                    val = data.get(key)
+                    # skip empty strings (do not overwrite existing data with "")
+                    if val is None or (isinstance(val, str) and val.strip() == ""):
+                        # remove from data to avoid later confusion
+                        data.pop(key, None)
+                        continue
+                    nested[subkey] = val
+                    data.pop(key, None)
+
+            # collect file key e.g. 'patient_profile.profile_picture'
+            file_key = f"{prefix}profile_picture"
+            if file_key in request.FILES:
+                nested['profile_picture'] = request.FILES[file_key]
+            # allow plain 'profile_picture' as fallback if not already set
+            elif 'profile_picture' in request.FILES and 'profile_picture' not in nested:
+                nested['profile_picture'] = request.FILES['profile_picture']
+
+            # allow explicit deletion: client may send e.g. patient_profile.profile_picture = "REMOVE" or ""
+            # we already treat empty string as skip; if client wants deletion, send patient_profile._remove_profile_picture = "1"
+            remove_flag = f"{prefix}_remove_profile_picture"
+            if remove_flag in data:
+                # client explicitly asked to remove picture
+                nested['profile_picture'] = None
+                data.pop(remove_flag, None)
+
+            return nested
+
+        patient_nested = collect_nested("patient_profile.")
+        doctor_nested = collect_nested("doctor_profile.")
+
+        if patient_nested:
+            data['patient_profile'] = patient_nested
+        if doctor_nested:
+            data['doctor_profile'] = doctor_nested
+
+        # If there are no nested keys but plain 'patient_profile' exists as JSON/dict in data, keep it
+        if 'patient_profile' in data and not isinstance(data.get('patient_profile'), dict):
+            # If the client sent a JSON string for patient_profile, try to ignore here; serializer can handle if needed
+            pass
+
+        # Now run serializer (partial update allowed)
+        serializer = UserUpdateSerializer(request.user, data=data, partial=True, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        # Return fresh data
+        return Response(UserDetailSerializer(request.user, context={"request": request}).data, status=status.HTTP_200_OK)
+
+    def patch(self, request):
+        return self.put(request)
