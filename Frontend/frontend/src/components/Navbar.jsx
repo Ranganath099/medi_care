@@ -10,7 +10,7 @@ import {
   List,
   ListItem,
   ListItemButton,
-  ListItemText
+  ListItemText,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -20,39 +20,104 @@ export default function Navbar() {
   const location = useLocation();
   const [open, setOpen] = useState(false);
 
-  const buttonHover = { "&:hover": { backgroundColor: "rgba(255,255,255,0.2)", color: "#fff" } };
+  const buttonHover = {
+    "&:hover": {
+      backgroundColor: "rgba(255,255,255,0.2)",
+      color: "#fff",
+    },
+  };
 
   const scrollToSection = (id) => {
     setOpen(false);
+
+    // If not on Home page, go there first
+    if (location.pathname !== "/") {
+      navigate("/", {
+        state: { scrollTo: id },
+      });
+      return;
+    }
+
     const section = document.getElementById(id);
-    if (section) section.scrollIntoView({ behavior: "smooth" });
+
+    if (section) {
+      section.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }
   };
 
-  const hideOnPaths = ["/dashboard", "/profile", "/admin-analytics", "/doctor-dashboard"];
-  const shouldHide = hideOnPaths.some((p) => location.pathname.startsWith(p));
+  const hideOnPaths = [
+    "/dashboard",
+    "/profile",
+    "/admin-analytics",
+    "/doctor-dashboard",
+  ];
+
+  const shouldHide = hideOnPaths.some((p) =>
+    location.pathname.startsWith(p)
+  );
+
   if (shouldHide) return null;
 
   const menuItems = [
-    { label: "Home", onClick: () => navigate("/") },
-    { label: "About", onClick: () => scrollToSection("about-section") },
-    { label: "Services", onClick: () => scrollToSection("services-section") },
-    { label: "Contact", onClick: () => scrollToSection("contact-section") },
-    { label: "Login", onClick: () => navigate("/login") },
-    { label: "Register", onClick: () => navigate("/register") },
+    {
+      label: "Home",
+      onClick: () => navigate("/"),
+    },
+    {
+      label: "About",
+      onClick: () => scrollToSection("about-section"),
+    },
+    {
+      label: "Services",
+      onClick: () => scrollToSection("services-section"),
+    },
+    {
+      label: "Contact",
+      onClick: () => scrollToSection("contact-section"),
+    },
+    {
+      label: "Login",
+      onClick: () => navigate("/login"),
+    },
+    {
+      label: "Register",
+      onClick: () => navigate("/register"),
+    },
   ];
 
   return (
     <>
       <AppBar position="static">
-        <Toolbar sx={{ display: "flex", justifyContent: "space-between" }}>
-          
-          <Typography variant="h6" sx={{ cursor: "pointer" }} onClick={() => navigate("/")}>
+        <Toolbar
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+          }}
+        >
+          <Typography
+            variant="h6"
+            sx={{ cursor: "pointer" }}
+            onClick={() => navigate("/")}
+          >
             MediCare
           </Typography>
 
-          <Box sx={{ display: { xs: "none", md: "flex" }, gap: 2 }}>
+          <Box
+            sx={{
+              display: { xs: "none", md: "flex" },
+              gap: 2,
+            }}
+          >
             {menuItems.map((item, idx) => (
-              <Button key={idx} sx={buttonHover} color="inherit" onClick={item.onClick}>
+              <Button
+                key={idx}
+                color="inherit"
+                sx={buttonHover}
+                onClick={item.onClick}
+              >
                 {item.label}
               </Button>
             ))}
@@ -66,11 +131,14 @@ export default function Navbar() {
           >
             <MenuIcon />
           </IconButton>
-
         </Toolbar>
       </AppBar>
 
-      <Drawer anchor="left" open={open} onClose={() => setOpen(false)}>
+      <Drawer
+        anchor="left"
+        open={open}
+        onClose={() => setOpen(false)}
+      >
         <List sx={{ width: 220 }}>
           {menuItems.map((item, idx) => (
             <ListItem key={idx} disablePadding>
